@@ -154,6 +154,13 @@
           style="width:24px; height:24px; padding:0; border:1px solid #ccc; border-radius:4px; cursor:pointer;"> 长居
       </label>
     </div>
+    <button id="share-btn"
+      style="margin-top: 10px; padding: 8px 20px; background-color: #52c41a; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: bold; transition: background 0.2s;">
+      保存足迹截图
+    </button>
+    <div style="font-size: 11px; color: #aaaaaa; margin-top: 8px; text-align: center; font-style: italic;">
+      * 地图数据截止至 2019 年。
+    </div>
   </div>
 
   <div class="map-container" id="map">
@@ -3056,6 +3063,118 @@
         visited: '#ffafa8ff',
         lived: '#db5959ff'
       };
+
+      const shareBtn = document.getElementById('share-btn');
+      const viewport = document.getElementById('map'); 
+
+      shareBtn.addEventListener('click', () => {
+        const originalSvg = viewport.querySelector('svg');
+        if (!originalSvg) {
+          alert("未找到地图 SVG 喵！");
+          return;
+        }
+
+        const pickerPassed = document.getElementById('color-passed');
+        const pickerVisited = document.getElementById('color-visited');
+        const pickerLived = document.getElementById('color-lived');
+
+        const currentColors = {
+          passed: pickerPassed ? pickerPassed.value : '#ffefefff',
+          visited: pickerVisited ? pickerVisited.value : '#ffafa8ff',
+          lived: pickerLived ? pickerLived.value : '#db5959ff'
+        };
+
+        const regions = originalSvg.querySelectorAll('path, polygon, rect');
+        const savedClasses = [];
+        const savedStyles = [];
+
+        let liveCountPassed = 0;
+        let liveCountVisited = 0;
+        let liveCountLived = 0;
+
+        regions.forEach((region, index) => {
+          savedClasses.push(region.getAttribute('class'));
+          savedStyles.push(region.getAttribute('style'));
+
+          const status = region.getAttribute('data-status') || "0";
+          let fillColor = "#e0e0e0";
+
+          if (status === "1") {
+            fillColor = currentColors.passed;
+            liveCountPassed++; 
+          } else if (status === "2") {
+            fillColor = currentColors.visited;
+            liveCountVisited++; 
+          } else if (status === "3") {
+            fillColor = currentColors.lived;
+            liveCountLived++; 
+          }
+
+          region.removeAttribute('class');
+          region.removeAttribute('style');
+          region.setAttribute('fill', fillColor);
+        });
+
+        const liveTotalScore = (liveCountPassed * 1) + (liveCountVisited * 3) + (liveCountLived * 5);
+
+        const scoreboardGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        scoreboardGroup.setAttribute("id", "exported-scoreboard");
+
+        const bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        bgRect.setAttribute("x", "30");
+        bgRect.setAttribute("y", "680");
+        bgRect.setAttribute("width", "160");
+        bgRect.setAttribute("height", "130");
+        bgRect.setAttribute("rx", "10");
+        bgRect.setAttribute("fill", "#ffffff");
+        bgRect.setAttribute("stroke", "#e8e8e8");
+        bgRect.setAttribute("stroke-width", "2");
+        bgRect.setAttribute("opacity", "0.95");
+        scoreboardGroup.appendChild(bgRect);
+
+        function createSvgText(text, x, y, size, color, isBold = false) {
+          const textNode = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          textNode.setAttribute("x", x);
+          textNode.setAttribute("y", y);
+          textNode.setAttribute("font-size", size);
+          textNode.setAttribute("fill", color);
+          textNode.setAttribute("font-family", "Arial, sans-serif");
+          if (isBold) textNode.setAttribute("font-weight", "bold");
+          textNode.textContent = text;
+          return textNode;
+        }
+
+        scoreboardGroup.appendChild(createSvgText(`总分：${liveTotalScore}`, "45", "712", "14", "#1890ff", true));
+        scoreboardGroup.appendChild(createSvgText(`▪ 途径：${liveCountPassed} 个`, "45", "738", "12", currentColors.passed, true));
+        scoreboardGroup.appendChild(createSvgText(`▪ 到访：${liveCountVisited} 个`, "45", "762", "12", currentColors.visited, true));
+        scoreboardGroup.appendChild(createSvgText(`▪ 长居：${liveCountLived} 个`, "45", "786", "12", currentColors.lived, true));
+
+        originalSvg.appendChild(scoreboardGroup);
+
+        const serializer = new XMLSerializer();
+        const svgString = serializer.serializeToString(originalSvg);
+
+        originalSvg.removeChild(scoreboardGroup);
+        regions.forEach((region, index) => {
+          region.removeAttribute('fill');
+          if (savedClasses[index]) region.setAttribute('class', savedClasses[index]);
+          if (savedStyles[index]) region.setAttribute('style', savedStyles[index]);
+        });
+
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const URL = window.URL || window.webkitURL || window;
+        const blobURL = URL.createObjectURL(svgBlob);
+
+        const downloadLink = document.createElement('a');
+        downloadLink.href = blobURL;
+        downloadLink.download = `我的足迹地图_${new Date().toISOString().slice(0, 10)}.svg`;
+
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+
+        setTimeout(() => URL.revokeObjectURL(blobURL), 100);
+      });
 
       function applyCustomColor(key, value) {
         document.documentElement.style.setProperty(`--color-${key}`, value);
