@@ -3065,7 +3065,7 @@
       };
 
       const shareBtn = document.getElementById('share-btn');
-      const viewport = document.getElementById('map'); 
+      const viewport = document.getElementById('map');
 
       shareBtn.addEventListener('click', () => {
         const originalSvg = viewport.querySelector('svg');
@@ -3101,13 +3101,13 @@
 
           if (status === "1") {
             fillColor = currentColors.passed;
-            liveCountPassed++; 
+            liveCountPassed++;
           } else if (status === "2") {
             fillColor = currentColors.visited;
-            liveCountVisited++; 
+            liveCountVisited++;
           } else if (status === "3") {
             fillColor = currentColors.lived;
-            liveCountLived++; 
+            liveCountLived++;
           }
 
           region.removeAttribute('class');
@@ -3165,15 +3165,46 @@
         const URL = window.URL || window.webkitURL || window;
         const blobURL = URL.createObjectURL(svgBlob);
 
-        const downloadLink = document.createElement('a');
-        downloadLink.href = blobURL;
-        downloadLink.download = `我的足迹地图_${new Date().toISOString().slice(0, 10)}.svg`;
+        const tempImg = new Image();
 
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
+        const exportScale = 2;
+        tempImg.width = 596 * exportScale;
+        tempImg.height = 841 * exportScale;
 
-        setTimeout(() => URL.revokeObjectURL(blobURL), 100);
+        tempImg.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = tempImg.width;
+          canvas.height = tempImg.height;
+          const ctx = canvas.getContext('2d');
+
+          ctx.fillStyle = '#f5f5f5';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          ctx.drawImage(tempImg, 0, 0, canvas.width, canvas.height);
+
+          const imageURL = canvas.toDataURL("image/png");
+
+          const downloadLink = document.createElement('a');
+          downloadLink.href = imageURL;
+          downloadLink.download = `我的足迹地图_${new Date().toISOString().slice(0, 10)}.png`;
+
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          document.body.removeChild(downloadLink);
+态
+          URL.revokeObjectURL(blobURL);
+          shareBtn.textContent = '保存足迹截图';
+          shareBtn.style.backgroundColor = '#52c41a';
+        };
+
+        tempImg.onerror = (err) => {
+          console.error("图片转换遭遇底层错误喵：", err);
+          URL.revokeObjectURL(blobURL);
+          shareBtn.textContent = '生成失败，请重试';
+          shareBtn.style.backgroundColor = '#ff4d4f';
+        };
+
+        tempImg.src = blobURL;
       });
 
       function applyCustomColor(key, value) {
