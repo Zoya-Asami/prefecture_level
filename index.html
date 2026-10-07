@@ -154,6 +154,11 @@
           style="width:24px; height:24px; padding:0; border:1px solid #ccc; border-radius:4px; cursor:pointer;"> 长居
       </label>
     </div>
+    <div style="display: flex; gap: 15px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed #eee; flex-wrap: wrap; justify-content: center; align-items: center;">
+      <label style="font-size: 13px; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+        <input type="checkbox" id="toggle-labels" checked> 显示行政区名称
+      </label>
+    </div>
     <button id="share-btn"
       style="margin-top: 10px; padding: 8px 20px; background-color: #52c41a; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: bold; transition: background 0.2s;">
       保存足迹截图
@@ -3066,6 +3071,39 @@
 
       const shareBtn = document.getElementById('share-btn');
       const viewport = document.getElementById('map');
+
+      // ===== 地名 显示 / 隐藏 =====
+      const labelCb = document.getElementById('toggle-labels');
+
+      // SVG 里所有地名都装在同一个 <g id="_标注"> 里，其下再分 市/省/首都 等子组。
+      // mode: 'all' 全部显示 | 'prov' 只显示省级 | 'none' 全部隐藏
+      function setLabelMode(mode) {
+        const root = viewport.querySelector('g[id="_标注"]');
+        if (!root) return;
+        const isShown = (el) => {
+          const gid = el.getAttribute('id') || '';
+          if (mode === 'all') return true;
+          if (mode === 'none') return false;
+          if (mode === 'prov') return gid.indexOf('_省_') === 0; // 只显示省级/直辖市
+          return true;
+        };
+        // 根组整体开，子组各自开，这样导出 PNG 时 style 属性会被序列化，所见即所得
+        root.style.display = (mode === 'none') ? 'none' : '';
+        root.querySelectorAll(':scope > g').forEach(g => {
+          g.style.display = isShown(g) ? '' : 'none';
+        });
+        localStorage.setItem('map_labels_mode', mode);
+      }
+
+      if (labelCb) {
+        const savedMode = localStorage.getItem('map_labels_mode') || 'all';
+        labelCb.checked = (savedMode !== 'none');
+        setLabelMode(savedMode);
+        labelCb.addEventListener('change', () => {
+          setLabelMode(labelCb.checked ? 'all' : 'none');
+        });
+      }
+
 
       shareBtn.addEventListener('click', () => {
         const originalSvg = viewport.querySelector('svg');
